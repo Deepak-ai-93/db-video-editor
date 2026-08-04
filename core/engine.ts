@@ -3,7 +3,14 @@ import ffmpeg from 'fluent-ffmpeg';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { StoryboardSpec, AudioTrack } from './types.ts';
+import {
+  type StoryboardSpec,
+  type AudioTrack,
+  type QualityPreset,
+  QUALITY_PRESETS,
+  RESOLUTION_PRESETS,
+  type ResolutionPreset,
+} from './types.ts';
 import { progress, easeInOutCubic, easeOutQuad, lerp } from './easing.ts';
 
 export interface FrameInfo {
@@ -31,6 +38,7 @@ export interface RenderOptions extends Composition {
   outputFile?: string;
   tmpDir?: string;
   keepFrames?: boolean;
+  quality?: QualityPreset;
   ffmpegPath?: string;
   onProgress?: (frame: number, totalFrames: number) => void;
 }
@@ -40,12 +48,15 @@ export interface RenderResult {
   width: number;
   height: number;
   fps: number;
+  quality: QualityPreset;
   totalFrames: number;
   elapsedMs: number;
 }
 
 export interface RenderStoryboardOptions {
   storyboard: StoryboardSpec;
+  resolution?: ResolutionPreset | { width: number; height: number };
+  quality?: QualityPreset;
   outputFile?: string;
   onProgress?: (frame: number, totalFrames: number) => void;
 }
@@ -59,6 +70,9 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
   const totalFrames = totalFramesOf(options);
   const canvas = createCanvas(options.width, options.height);
   const ctx = canvas.getContext('2d');
+
+  const quality: QualityPreset = options.quality ?? 'high';
+  const qConfig = QUALITY_PRESETS[quality] ?? QUALITY_PRESETS.high;
 
   const outputFile = options.outputFile ?? path.join('out', `${options.id}.mp4`);
   const outputDir = path.dirname(path.resolve(outputFile));
@@ -101,8 +115,8 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
         .outputOptions([
           '-c:v', 'libx264',
           '-pix_fmt', 'yuv420p',
-          '-crf', '18',
-          '-preset', 'medium',
+          '-crf', String(qConfig.crf),
+          '-preset', qConfig.preset,
           '-movflags', '+faststart',
         ])
         .on('end', () => resolve())
@@ -115,6 +129,7 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
       width: options.width,
       height: options.height,
       fps: options.fps,
+      quality,
       totalFrames,
       elapsedMs: Date.now() - startedAt,
     };
@@ -126,19 +141,37 @@ export async function render(options: RenderOptions): Promise<RenderResult> {
 }
 
 /**
- * Storyboard-driven 4K rendering engine.
- * Sequentially executes each scene block, dynamically interpolating themes, text overlays,
- * media assets, and transition effects directly onto the 4K canvas pipeline.
+ * Storyboard-driven multi-resolution rendering engine.
+ * Supports rendering at 720p, 1080p, 1440p, or 4K UHD, and quality presets (draft, standard, high, ultra).
  */
 export async function renderStoryboard(options: RenderStoryboardOptions): Promise<RenderResult> {
   const startedAt = Date.now();
   const { storyboard } = options;
 
-  const width = storyboard.width ?? 3840;
-  const height = storyboard.height ?? 2160;
-  const fps = storyboard.fps ?? 60;
+  let width = storyboard.width ?? 3840;
+  let height = storyboard.height ?? 2160;
 
-  // Calculate global frame ranges for each scene
+  if (options.resolution) {
+    if (typeof options.resolution === 'string' && options.resolution !== 'custom') {
+      const preset = RESOLUTION_PRESETS[options.resolution];
+      if (preset) {
+        width = preset.width;
+        height = preset.height;
+      }
+    } else if (typeof options.resolution === 'object') {
+      width = options.resolution.width;
+      height = options.resolution.height;
+    }
+  }
+
+  const fps = storyboard.fps ?? 60;
+  const quality: QualityPreset = options.quality ?? storyboard.quality ?? 'high';
+  const qConfig = QUALITY_PRESETS[quality] ?? QUALITY_PRESETS.high;
+
+  // Global scale factor for text and coordinates relative to standard 4K (3840x2160)
+  const scaleX = width / 3840;
+  const scaleY = height / 2160;
+
   let currentFrameCount = 0;
   const sceneRanges = storyboard.scenes.map((scene) => {
     const frameDuration = Math.max(1, Math.round(scene.durationInSeconds * fps));
@@ -155,7 +188,7 @@ export async function renderStoryboard(options: RenderStoryboardOptions): Promis
 
   const totalFrames = currentFrameCount;
 
-  const outputFile = options.outputFile ?? storyboard.output ?? path.join('out', 'storyboard-final.mp4');
+  const outputFile = options.outputFile ?? storyboard.output ?? path.join('out', `storyboard-${width}p.mp4`);
   const outputDir = path.dirname(path.resolve(outputFile));
   fs.mkdirSync(outputDir, { recursive: true });
 
@@ -180,7 +213,6 @@ export async function renderStoryboard(options: RenderStoryboardOptions): Promis
     }
   }
 
-  // Audio tracks collecting
   const globalAudioTracks: AudioTrack[] = [];
   for (const range of sceneRanges) {
     const sceneStartTime = range.startFrame / fps;
@@ -209,12 +241,12 @@ export async function renderStoryboard(options: RenderStoryboardOptions): Promis
       const localFrame = frame - startFrame;
       const localTime = localFrame / fps;
 
-      // 1. Draw Theme / Background
+      // 1. Theme / Background
       const bgColor = scene.theme?.backgroundColor ?? '#000000';
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, width, height);
 
-      // 2. Draw Media Assets
+      // 2. Media Assets with dynamic scaling
       if (scene.mediaAssets) {
         for (const asset of scene.mediaAssets) {
           const absPath = path.isAbsolute(asset.path) ? asset.path : path.resolve(process.cwd(), asset.path);
@@ -222,40 +254,42 @@ export async function renderStoryboard(options: RenderStoryboardOptions): Promis
           if (img) {
             ctx.save();
             ctx.globalAlpha = asset.opacity ?? 1.0;
-            const drawX = asset.x ?? 0;
-            const drawY = asset.y ?? 0;
-            const drawW = asset.width ?? width;
-            const drawH = asset.height ?? height;
+            const drawX = asset.x !== undefined ? asset.x * scaleX : 0;
+            const drawY = asset.y !== undefined ? asset.y * scaleY : 0;
+            const drawW = asset.width !== undefined ? asset.width * scaleX : width;
+            const drawH = asset.height !== undefined ? asset.height * scaleY : height;
             ctx.drawImage(img, drawX, drawY, drawW, drawH);
             ctx.restore();
           }
         }
       }
 
-      // 3. Draw Text Overlays with Dynamic Animation Interpolation
+      // 3. Text Overlays with resolution scaling and dynamic animation
       if (scene.textOverlays) {
         for (const textSpec of scene.textOverlays) {
           ctx.save();
-          const fontSize = textSpec.fontSize ?? 64;
+          const unscaledSize = textSpec.fontSize ?? 64;
+          const fontSize = Math.round(unscaledSize * Math.min(scaleX, scaleY));
           const fontFam = textSpec.fontFamily ?? 'sans-serif';
           ctx.font = `bold ${fontSize}px ${fontFam}`;
           ctx.fillStyle = scene.theme?.textColor ?? '#ffffff';
           ctx.textAlign = (textSpec.align as 'left' | 'center' | 'right' | 'start' | 'end') ?? 'center';
 
-          const renderX = textSpec.x ?? width / 2;
-          let renderY = textSpec.y ?? height / 2;
-          let alpha = 1.0;
+          const baseX = textSpec.x !== undefined ? textSpec.x * scaleX : width / 2;
+          const baseY = textSpec.y !== undefined ? textSpec.y * scaleY : height / 2;
 
+          let renderX = baseX;
+          let renderY = baseY;
+          let alpha = 1.0;
           let textToDraw = textSpec.text;
 
-          // Animation Interpolation
           if (textSpec.animation === 'fadeIn') {
             const animP = progress(localTime, 0, 1.0);
             alpha = easeOutQuad(animP);
           } else if (textSpec.animation === 'slideUp') {
             const animP = progress(localTime, 0, 1.0);
             const eased = easeInOutCubic(animP);
-            renderY = lerp((textSpec.y ?? height / 2) + 100, textSpec.y ?? height / 2, eased);
+            renderY = lerp(baseY + 100 * scaleY, baseY, eased);
             alpha = eased;
           } else if (textSpec.animation === 'typewriter') {
             const chars = textSpec.text.length;
@@ -270,7 +304,7 @@ export async function renderStoryboard(options: RenderStoryboardOptions): Promis
         }
       }
 
-      // 4. Draw Scene Transition Effects
+      // 4. Transitions
       if (scene.transition && scene.transition.type !== 'none') {
         const transDurFrames = Math.max(1, Math.round((scene.transition.durationInSeconds ?? 0.5) * fps));
         if (localFrame < transDurFrames) {
@@ -285,7 +319,6 @@ export async function renderStoryboard(options: RenderStoryboardOptions): Promis
         }
       }
 
-      // Write frame PNG to memory/disk stream
       const png = canvas.toBuffer('image/png');
       const frameFile = path.join(tmpDir, `frame-${String(frame).padStart(6, '0')}.png`);
       fs.writeFileSync(frameFile, png);
@@ -293,12 +326,11 @@ export async function renderStoryboard(options: RenderStoryboardOptions): Promis
       options.onProgress?.(frame + 1, totalFrames);
     }
 
-    // Encoder step with FFmpeg
+    // Encoder step with quality parameters
     await new Promise<void>((resolve, reject) => {
       const command = ffmpeg();
       command.input(path.join(tmpDir, 'frame-%06d.png')).inputOptions([`-framerate ${fps}`]);
 
-      // Add audio inputs if present
       globalAudioTracks.forEach((track) => {
         command.input(track.path);
       });
@@ -306,8 +338,8 @@ export async function renderStoryboard(options: RenderStoryboardOptions): Promis
       const outputOptions = [
         '-c:v', 'libx264',
         '-pix_fmt', 'yuv420p',
-        '-crf', '18',
-        '-preset', 'medium',
+        '-crf', String(qConfig.crf),
+        '-preset', qConfig.preset,
         '-movflags', '+faststart',
       ];
 
@@ -328,6 +360,7 @@ export async function renderStoryboard(options: RenderStoryboardOptions): Promis
       width,
       height,
       fps,
+      quality,
       totalFrames,
       elapsedMs: Date.now() - startedAt,
     };

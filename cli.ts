@@ -7,7 +7,7 @@ import { assertCompositionAssets, checkCompositionAssets, scanAssetManifest } fr
 import { initWorkspace } from './core/init.ts';
 import { runPlanner } from './scripts/storyboard-planner.ts';
 import { loadTokenLog } from './core/tokens.ts';
-import type { StoryboardSpec } from './core/types.ts';
+import type { StoryboardSpec, QualityPreset, ResolutionPreset } from './core/types.ts';
 
 const program = new Command();
 
@@ -29,7 +29,7 @@ function reportProgress(frame: number, total: number): void {
   }
 }
 
-program.name('video-engine').description('Custom local video engine CLI').version('0.3.0');
+program.name('video-engine').description('Custom local video engine CLI').version('0.4.0');
 
 program
   .command('init')
@@ -97,29 +97,42 @@ program
 
 program
   .command('render')
-  .description('Validate assets and render a composition or storyboard to MP4')
+  .description('Validate assets and render a composition or storyboard to MP4 with resolution and quality controls')
   .option('--composition <name>', 'composition id to render')
   .option('--storyboard <file>', 'storyboard JSON file to render (e.g. content/storyboard.json)')
-  .option('--output <file>', 'output mp4 path (default: out/<id>.mp4)')
-  .action(async (options: { composition?: string; storyboard?: string; output?: string }) => {
+  .option('--resolution <preset>', 'target resolution (720p, 1080p, 1440p, 4k)', '4k')
+  .option('--quality <preset>', 'video encoding quality (draft, standard, high, ultra)', 'high')
+  .option('--output <file>', 'output mp4 path')
+  .action(async (options: {
+    composition?: string;
+    storyboard?: string;
+    resolution?: string;
+    quality?: string;
+    output?: string;
+  }) => {
+    const resPreset = (options.resolution as ResolutionPreset) ?? '4k';
+    const qualPreset = (options.quality as QualityPreset) ?? 'high';
+
     if (options.storyboard) {
       const sbPath = path.resolve(process.cwd(), options.storyboard);
       if (!fs.existsSync(sbPath)) {
         throw new Error(`Storyboard file not found: ${sbPath}`);
       }
       const storyboard: StoryboardSpec = JSON.parse(fs.readFileSync(sbPath, 'utf8'));
-      const outputFile = options.output ?? storyboard.output ?? `out/storyboard-final.mp4`;
+      const outputFile = options.output ?? `out/storyboard-${resPreset}-${qualPreset}.mp4`;
 
-      console.log(`Rendering Storyboard: "${storyboard.title}" (${storyboard.scenes.length} scenes)...`);
+      console.log(`Rendering Storyboard: "${storyboard.title}" [Resolution: ${resPreset}, Quality: ${qualPreset}]...`);
       const result = await renderStoryboard({
         storyboard,
+        resolution: resPreset,
+        quality: qualPreset,
         outputFile,
         onProgress: reportProgress,
       });
 
       console.log(
-        `\nRendered ${result.outputFile} — ${result.width}x${result.height} @ ${result.fps}fps, ` +
-          `${result.totalFrames} frames, in ${(result.elapsedMs / 1000).toFixed(1)}s`,
+        `\nRendered ${result.outputFile} — ${result.width}x${result.height} @ ${result.fps}fps ` +
+          `[Quality: ${result.quality}], ${result.totalFrames} frames, in ${(result.elapsedMs / 1000).toFixed(1)}s`,
       );
       return;
     }
@@ -128,16 +141,17 @@ program
     const composition = findComposition(compName);
     assertCompositionAssets(composition);
 
-    const outputFile = options.output ?? `out/${composition.id}.mp4`;
+    const outputFile = options.output ?? `out/${composition.id}-${qualPreset}.mp4`;
     const result = await render({
       ...composition,
+      quality: qualPreset,
       outputFile,
       onProgress: reportProgress,
     });
 
     console.log(
-      `\nRendered ${result.outputFile} — ${result.width}x${result.height} @ ${result.fps}fps, ` +
-        `${result.totalFrames} frames, in ${(result.elapsedMs / 1000).toFixed(1)}s`,
+      `\nRendered ${result.outputFile} — ${result.width}x${result.height} @ ${result.fps}fps ` +
+        `[Quality: ${result.quality}], ${result.totalFrames} frames, in ${(result.elapsedMs / 1000).toFixed(1)}s`,
     );
   });
 

@@ -3,38 +3,50 @@ import type { SKRSContext2D } from '@napi-rs/canvas';
 /** Default prop bag used when a composition does not declare a stricter type. */
 export type DefaultProps = Record<string, unknown>;
 
-/**
- * The pure mathematical scene function required by the composition framework.
- */
-export type RenderFrame<Props = DefaultProps> = (
-  ctx: SKRSContext2D,
-  frame: number,
-  fps: number,
-  props: Props,
-) => void;
+/** Quality Preset options for video encoding */
+export type QualityPreset = 'draft' | 'standard' | 'high' | 'ultra';
 
-/** A single audio track to be muxed into the final output. */
-export interface AudioTrack {
-  /** Path to the audio file. Relative paths resolve against the assets root. */
-  path: string;
-  /** Offset in seconds into the final timeline where this track begins. */
-  startAt?: number;
-  /** Linear gain, 0..1 (defaults to 1). */
-  volume?: number;
+/** Quality configuration mapping */
+export interface QualityConfig {
+  crf: number;
+  preset: string;
+  bitrate?: string;
 }
 
-/** Canonical resolution presets. */
+export const QUALITY_PRESETS: Record<QualityPreset, QualityConfig> = {
+  draft: { crf: 28, preset: 'ultrafast' },
+  standard: { crf: 23, preset: 'fast' },
+  high: { crf: 18, preset: 'medium' },
+  ultra: { crf: 14, preset: 'slow' },
+};
+
+/** Preset Resolution Options */
+export type ResolutionPreset = '720p' | '1080p' | '1440p' | '4k' | 'custom';
+
 export interface Resolution {
   width: number;
   height: number;
 }
 
-/** 4K UHD. */
-export const UHD_4K: Resolution = { width: 3840, height: 2160 };
-/** Full HD. */
-export const FHD_1080: Resolution = { width: 1920, height: 1080 };
-/** HD. */
-export const HD_720: Resolution = { width: 1280, height: 720 };
+export const RESOLUTION_PRESETS: Record<Exclude<ResolutionPreset, 'custom'>, Resolution> = {
+  '720p': { width: 1280, height: 720 },
+  '1080p': { width: 1920, height: 1080 },
+  '1440p': { width: 2560, height: 1440 },
+  '4k': { width: 3840, height: 2160 },
+};
+
+/** Canonical resolution constants */
+export const HD_720 = RESOLUTION_PRESETS['720p'];
+export const FHD_1080 = RESOLUTION_PRESETS['1080p'];
+export const QHD_1440 = RESOLUTION_PRESETS['1440p'];
+export const UHD_4K = RESOLUTION_PRESETS['4k'];
+
+/** A single audio track to be muxed into the final output. */
+export interface AudioTrack {
+  path: string;
+  startAt?: number;
+  volume?: number;
+}
 
 /** Text overlay entry inside a Storyboard Scene */
 export interface TextOverlaySpec {
@@ -90,9 +102,18 @@ export interface StoryboardSpec {
   width?: number;
   height?: number;
   fps?: number;
+  quality?: QualityPreset;
   output?: string;
   scenes: StoryboardSceneSpec[];
 }
+
+/** The pure mathematical scene function. */
+export type RenderFrame<Props = DefaultProps> = (
+  ctx: SKRSContext2D,
+  frame: number,
+  fps: number,
+  props: Props,
+) => void;
 
 /** A registered, renderable composition. */
 export interface Composition<Props = DefaultProps> {
@@ -107,84 +128,23 @@ export interface Composition<Props = DefaultProps> {
   renderFrame: RenderFrame<Props>;
 }
 
-/** A scene as authored in a project script JSON file. */
-export interface SceneSpec {
-  id: string;
-  durationInSeconds: number;
-  props?: DefaultProps;
-  audio?: AudioTrack[];
-}
-
-/** The top-level project script format consumed by `cli.ts build`. */
-export interface ProjectScript {
-  version?: number;
-  title?: string;
-  output?: string;
-  width?: number;
-  height?: number;
-  fps?: number;
-  encoder?: string;
-  concurrency?: number;
-  scenes: SceneSpec[];
-}
-
-/** A fully resolved, serialisable timeline segment. */
-export interface SegmentSpec {
-  compositionId: string;
-  startFrame: number;
-  frameCount: number;
-  fps: number;
-  props: DefaultProps;
-}
-
-/** The full serialisable description of a render. */
-export interface TimelineSpec {
-  width: number;
-  height: number;
-  fps: number;
-  totalFrames: number;
-  segments: SegmentSpec[];
-}
-
-/** An audio track pinned to an absolute timeline offset (post-resolution). */
-export interface AudioPlan extends AudioTrack {
-  startAt: number;
-  volume: number;
-  absolutePath: string;
-}
-
-/** A complete render job handed to the engine. */
-export interface RenderPlan {
-  width: number;
-  height: number;
-  fps: number;
-  totalFrames: number;
-  timeline: TimelineSpec;
-  audio: AudioPlan[];
-  output: string;
-}
-
-/** Progress callback: (framesWrittenSoFar, totalFrames). */
 export type ProgressFn = (frame: number, totalFrames: number) => void;
 
-/** Options accepted by render. */
-export interface RenderOptions {
+export interface RenderOptions extends Composition {
+  outputFile?: string;
+  tmpDir?: string;
+  keepFrames?: boolean;
+  quality?: QualityPreset;
   ffmpegPath?: string;
-  ffprobePath?: string;
-  encoder?: string;
-  concurrency?: number;
   onProgress?: ProgressFn;
 }
 
-/** Result returned by render. */
 export interface RenderResult {
   outputFile: string;
   width: number;
   height: number;
   fps: number;
+  quality: QualityPreset;
   totalFrames: number;
   elapsedMs: number;
-  encoder: string;
-  hardware: boolean;
-  concurrency: number;
 }
