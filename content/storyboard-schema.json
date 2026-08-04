@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StoryboardSpec",
+  "description": "Master blueprint bridging AI content creation, asset mapping, and frame-by-frame rendering in the 4K headless video engine.",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Title of the video project"
+    },
+    "version": {
+      "type": "string",
+      "default": "1.0"
+    },
+    "width": {
+      "type": "integer",
+      "default": 3840,
+      "description": "Canvas width in pixels (e.g. 3840 for 4K)"
+    },
+    "height": {
+      "type": "integer",
+      "default": 2160,
+      "description": "Canvas height in pixels (e.g. 2160 for 4K)"
+    },
+    "fps": {
+      "type": "integer",
+      "default": 60,
+      "description": "Frames per second"
+    },
+    "output": {
+      "type": "string",
+      "description": "Default target output MP4 filepath"
+    },
+    "scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sceneNumber": {
+            "type": "integer",
+            "description": "1-indexed sequence number of the scene"
+          },
+          "durationInSeconds": {
+            "type": "number",
+            "description": "Duration of the scene in seconds"
+          },
+          "startFrame": {
+            "type": "integer",
+            "description": "Optional explicit start frame index"
+          },
+          "endFrame": {
+            "type": "integer",
+            "description": "Optional explicit end frame index"
+          },
+          "transition": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["fade", "slide", "zoom", "none"]
+              },
+              "durationInSeconds": {
+                "type": "number",
+                "default": 0.5
+              }
+            },
+            "required": ["type"]
+          },
+          "theme": {
+            "type": "object",
+            "properties": {
+              "backgroundColor": { "type": "string" },
+              "accentColor": { "type": "string" },
+              "textColor": { "type": "string" }
+            }
+          },
+          "textOverlays": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": { "type": "string" },
+                "fontSize": { "type": "number" },
+                "fontFamily": { "type": "string" },
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "align": { "type": "string", "enum": ["left", "center", "right"] },
+                "animation": { "type": "string", "enum": ["fadeIn", "slideUp", "typewriter", "none"] }
+              },
+              "required": ["text"]
+            }
+          },
+          "mediaAssets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string" },
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "width": { "type": "number" },
+                "height": { "type": "number" },
+                "opacity": { "type": "number" }
+              },
+              "required": ["path"]
+            }
+          },
+          "audio": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string" },
+                "startAt": { "type": "number", "default": 0 },
+                "volume": { "type": "number", "default": 1.0 }
+              },
+              "required": ["path"]
+            }
+          }
+        },
+        "required": ["sceneNumber", "durationInSeconds"]
+      }
+    }
+  },
+  "required": ["title", "scenes"]
+}

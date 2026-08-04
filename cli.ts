@@ -1,8 +1,12 @@
 import { Command } from 'commander';
-import { render, type Composition } from './core/engine.ts';
+import fs from 'node:fs';
+import path from 'node:path';
+import { render, renderStoryboard, type Composition } from './core/engine.ts';
 import { compositions } from './compositions/index.ts';
 import { assertCompositionAssets, checkCompositionAssets, scanAssetManifest } from './core/validate.ts';
 import { initWorkspace } from './core/init.ts';
+import { runPlanner } from './scripts/storyboard-planner.ts';
+import type { StoryboardSpec } from './core/types.ts';
 
 const program = new Command();
 
@@ -24,7 +28,7 @@ function reportProgress(frame: number, total: number): void {
   }
 }
 
-program.name('video-engine').description('Custom local video engine CLI').version('0.1.0');
+program.name('video-engine').description('Custom local video engine CLI').version('0.2.0');
 
 program
   .command('init')
@@ -61,12 +65,47 @@ program
   });
 
 program
+  .command('plan')
+  .description('Synthesize structured storyboard JSON from markdown prompt/brief')
+  .option('--input <file>', 'path to input markdown brief', 'content/promo-idea-1.md')
+  .option('--output <file>', 'path to output storyboard JSON', 'content/storyboard.json')
+  .action((options: { input: string; output: string }) => {
+    console.log(`\nSynthesizing AI Storyboard...`);
+    const storyboard = runPlanner({ inputFile: options.input, outputFile: options.output });
+    console.log(`Created Storyboard "${storyboard.title}" with ${storyboard.scenes.length} scenes.`);
+  });
+
+program
   .command('render')
-  .description('Validate assets and render a composition to MP4')
-  .requiredOption('--composition <name>', 'composition id to render')
+  .description('Validate assets and render a composition or storyboard to MP4')
+  .option('--composition <name>', 'composition id to render')
+  .option('--storyboard <file>', 'storyboard JSON file to render (e.g. content/storyboard.json)')
   .option('--output <file>', 'output mp4 path (default: out/<id>.mp4)')
-  .action(async (options: { composition: string; output?: string }) => {
-    const composition = findComposition(options.composition);
+  .action(async (options: { composition?: string; storyboard?: string; output?: string }) => {
+    if (options.storyboard) {
+      const sbPath = path.resolve(process.cwd(), options.storyboard);
+      if (!fs.existsSync(sbPath)) {
+        throw new Error(`Storyboard file not found: ${sbPath}`);
+      }
+      const storyboard: StoryboardSpec = JSON.parse(fs.readFileSync(sbPath, 'utf8'));
+      const outputFile = options.output ?? storyboard.output ?? `out/storyboard-final.mp4`;
+
+      console.log(`Rendering Storyboard: "${storyboard.title}" (${storyboard.scenes.length} scenes)...`);
+      const result = await renderStoryboard({
+        storyboard,
+        outputFile,
+        onProgress: reportProgress,
+      });
+
+      console.log(
+        `\nRendered ${result.outputFile} — ${result.width}x${result.height} @ ${result.fps}fps, ` +
+          `${result.totalFrames} frames, in ${(result.elapsedMs / 1000).toFixed(1)}s`,
+      );
+      return;
+    }
+
+    const compName = options.composition ?? 'bouncing-ball';
+    const composition = findComposition(compName);
     assertCompositionAssets(composition);
 
     const outputFile = options.output ?? `out/${composition.id}.mp4`;
@@ -77,7 +116,7 @@ program
     });
 
     console.log(
-      `Rendered ${result.outputFile} — ${result.width}x${result.height} @ ${result.fps}fps, ` +
+      `\nRendered ${result.outputFile} — ${result.width}x${result.height} @ ${result.fps}fps, ` +
         `${result.totalFrames} frames, in ${(result.elapsedMs / 1000).toFixed(1)}s`,
     );
   });

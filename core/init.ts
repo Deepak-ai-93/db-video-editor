@@ -30,23 +30,26 @@ npm install
   node cli.ts init --name "My 4K Project"
   \`\`\`
 
-- **List Available Compositions**:
+- **Synthesize Storyboard JSON via AI Planner**:
+  \`\`\`bash
+  node cli.ts plan --input content/promo-idea-1.md --output content/storyboard.json
+  # or via npm script:
+  npm run plan
+  \`\`\`
+
+- **Render a Storyboard or Composition to 4K Video**:
+  \`\`\`bash
+  # Render Storyboard JSON directly:
+  node cli.ts render --storyboard content/storyboard.json --output out/final-storyboard-4k.mp4
+
+  # Or render legacy programmatic compositions:
+  node cli.ts render --composition tech-promo --output out/final-4k.mp4
+  \`\`\`
+
+- **List & Validate Assets**:
   \`\`\`bash
   node cli.ts list
-  # or via npm script:
-  npm run list
-  \`\`\`
-
-- **Validate Composition Assets & Asset Manifest**:
-  \`\`\`bash
   node cli.ts validate
-  # or for a single composition:
-  node cli.ts validate --composition=bouncing-ball
-  \`\`\`
-
-- **Render a Composition to 4K / HD Video**:
-  \`\`\`bash
-  node cli.ts render --composition=tech-promo --output=out/final-4k.mp4
   \`\`\`
 
 ---
@@ -60,36 +63,33 @@ The engine initializes and expects the following directory structure:
 │   ├── images/     # Logos, backgrounds, visual overlays (.png, .jpg, .svg, .webp)
 │   ├── audio/      # Background audio tracks, sound effects, voiceovers (.mp3, .wav)
 │   └── fonts/      # Custom local typography (.ttf, .otf, .woff2)
-├── content/        # Markdown briefs and AI-generated script JSONs
+├── content/
+│   ├── storyboard-schema.json  # Master JSON schema definition
+│   ├── storyboard.json         # Synthesized video blueprint
+│   └── promo-idea-1.md         # Raw markdown prompt/brief
 ├── compositions/   # Pure Canvas rendering logic (TypeScript functions)
 ├── core/           # Rendering pipeline, asset validators, math/easing utilities
+├── scripts/        # AI director and Storyboard planner bridge scripts
 ├── out/            # Rendered 4K MP4 video outputs
 └── cli.ts          # Terminal CLI entrypoint
 \`\`\`
 
-### Asset Dropping Guidelines
-1. **Images**: Drop high-resolution assets into \`assets/images/\`.
-2. **Audio**: Drop background tracks or voiceovers into \`assets/audio/\`.
-3. **Fonts**: Drop custom local TTF/OTF fonts into \`assets/fonts/\`.
-4. Running \`node cli.ts init\` or \`node cli.ts validate\` will scan these directories and build an **Asset Manifest** automatically.
-
 ---
 
-## 🤖 AI Assistant & AI Director Integration
+## 🎨 AI Storyboard Planning Workflow
 
-AI tools (such as OpenCode, Claude Code, or Antigravity CLI) can autonomously generate and update video scripts:
+AI tools (such as OpenCode, Claude Code, or Antigravity CLI) follow a 3-step video creation flow:
 
-1. Place raw markdown briefs or script JSON files inside the \`content/\` directory (e.g. \`content/promo-idea-1.md\`).
-2. Run the AI Director script to parse the brief, update composition parameters, and trigger rendering:
-   \`\`\`bash
-   npm run direct content/promo-idea-1.md
-   \`\`\`
+1. **Drafting Briefs**: Drop raw markdown ideas/prompts into \`content/\`.
+2. **AI Storyboard Generation**: Run \`npm run plan -- --input content/promo-idea-1.md\`. The AI planner generates a frame-accurate, schema-compliant JSON file (\`content/storyboard.json\`) complete with scene numbers, transitions, audio timelines, theme colors, and layout coordinates.
+3. **Editing & Previewing**: Edit or inspect \`content/storyboard.json\` prior to compilation.
+4. **4K Render Compilation**: Execute \`npm run render:storyboard\`. The engine reads the JSON, pre-caches assets, dynamically interpolates scene text overlays and transitions, and outputs an ultra-crisp 3840x2160 @ 60 FPS MP4 video.
 
 ---
 
 ## 🎬 4K Render Pipeline Architecture
 
-The engine renders frames sequentially or concurrently via Canvas at **3840x2160 (4K UHD) @ 60 FPS**, piping raw buffers straight into FFmpeg with hardware acceleration.
+The engine renders frames sequentially via Canvas at **3840x2160 (4K UHD) @ 60 FPS**, piping raw buffers straight into FFmpeg with hardware acceleration.
 
 Enjoy rendering high-performance local video with TypeScript!
 `;
