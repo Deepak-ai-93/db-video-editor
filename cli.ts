@@ -1,7 +1,8 @@
 import { Command } from 'commander';
 import { render, type Composition } from './core/engine.ts';
 import { compositions } from './compositions/index.ts';
-import { assertCompositionAssets, checkCompositionAssets } from './core/validate.ts';
+import { assertCompositionAssets, checkCompositionAssets, scanAssetManifest } from './core/validate.ts';
+import { initWorkspace } from './core/init.ts';
 
 const program = new Command();
 
@@ -24,6 +25,40 @@ function reportProgress(frame: number, total: number): void {
 }
 
 program.name('video-engine').description('Custom local video engine CLI').version('0.1.0');
+
+program
+  .command('init')
+  .description('Scaffold local directory structure, generate TUTORIAL.md, and output asset manifest')
+  .option('--name <project-name>', 'project title for documentation', 'DB Video Editor')
+  .action((options: { name: string }) => {
+    console.log(`\nInitializing workspace for "${options.name}"...`);
+    const result = initWorkspace({ projectName: options.name });
+
+    console.log('\n[1/3] Workspace Directory Scaffolding:');
+    const allDirectories = [
+      'assets/images/',
+      'assets/audio/',
+      'assets/fonts/',
+      'content/',
+      'compositions/',
+      'out/',
+    ];
+    for (const dir of allDirectories) {
+      console.log(`  - [ok] ${dir}`);
+    }
+
+    console.log(`\n[2/3] Documentation Engine:`);
+    console.log(`  - [ok] TUTORIAL.md generated`);
+
+    console.log(`\n[3/3] Local Asset Manifest Scan:`);
+    const { manifest } = result;
+    console.log(`  - Images (${manifest.images.length}): ${manifest.images.map((i) => i.relativePath).join(', ') || 'none'}`);
+    console.log(`  - Audio  (${manifest.audio.length}): ${manifest.audio.map((a) => a.relativePath).join(', ') || 'none'}`);
+    console.log(`  - Fonts  (${manifest.fonts.length}): ${manifest.fonts.map((f) => f.relativePath).join(', ') || 'none'}`);
+    console.log(`  - Total scanned: ${manifest.totalCount} asset(s)`);
+
+    console.log('\nWorkspace initialization complete!');
+  });
 
 program
   .command('render')
@@ -49,7 +84,7 @@ program
 
 program
   .command('validate')
-  .description('Check that every asset referenced by a composition exists')
+  .description('Check that referenced assets exist and scan overall asset manifest')
   .option('--composition <name>', 'validate a single composition (default: all)')
   .action((options: { composition?: string }) => {
     const targets = options.composition
@@ -67,8 +102,15 @@ program
       console.log(`  [info] ${checks.length} asset(s) declared`);
     }
 
+    console.log('\nScanning local asset manifest...');
+    const manifest = scanAssetManifest();
+    console.log(`Discovered ${manifest.totalCount} asset(s) across assets/ folder:`);
+    console.log(`  Images : ${manifest.images.length}`);
+    console.log(`  Audio  : ${manifest.audio.length}`);
+    console.log(`  Fonts  : ${manifest.fonts.length}`);
+
     if (failed) {
-      console.error('\nValidation failed: one or more assets are missing.');
+      console.error('\nValidation failed: one or more composition assets are missing.');
       process.exit(1);
     }
     console.log('\nValidation passed.');

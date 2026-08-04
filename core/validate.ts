@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import type { Composition } from './engine.ts';
 
@@ -12,6 +12,21 @@ export interface AssetCheck {
   path: string;
   kind: AssetKind;
   exists: boolean;
+}
+
+export interface DiscoveredAsset {
+  relativePath: string;
+  absolutePath: string;
+  kind: AssetKind;
+  sizeBytes: number;
+}
+
+export interface AssetManifest {
+  images: DiscoveredAsset[];
+  audio: DiscoveredAsset[];
+  fonts: DiscoveredAsset[];
+  unknown: DiscoveredAsset[];
+  totalCount: number;
 }
 
 export function classifyAsset(assetPath: string): AssetKind {
@@ -33,7 +48,7 @@ export function checkCompositionAssets(
     return {
       path: assetPath,
       kind: classifyAsset(assetPath),
-      exists: existsSync(absolute),
+      exists: fs.existsSync(absolute),
     };
   });
 }
@@ -48,4 +63,51 @@ export function assertCompositionAssets(
     throw new Error(`Composition "${composition.id}" references missing assets:\n${list}`);
   }
   return checks;
+}
+
+/**
+ * Recursively scans `assets/` subfolders, validates file formats, and generates an AssetManifest object.
+ */
+export function scanAssetManifest(assetsDir: string = path.resolve(process.cwd(), 'assets')): AssetManifest {
+  const manifest: AssetManifest = {
+    images: [],
+    audio: [],
+    fonts: [],
+    unknown: [],
+    totalCount: 0,
+  };
+
+  if (!fs.existsSync(assetsDir)) {
+    return manifest;
+  }
+
+  function walk(currentDir: string): void {
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (entry.isFile()) {
+        const relativePath = path.relative(process.cwd(), fullPath).replace(/\\/g, '/');
+        const kind = classifyAsset(entry.name);
+        const stats = fs.statSync(fullPath);
+        const assetObj: DiscoveredAsset = {
+          relativePath,
+          absolutePath: fullPath,
+          kind,
+          sizeBytes: stats.size,
+        };
+
+        if (kind === 'image') manifest.images.push(assetObj);
+        else if (kind === 'audio') manifest.audio.push(assetObj);
+        else if (kind === 'font') manifest.fonts.push(assetObj);
+        else manifest.unknown.push(assetObj);
+
+        manifest.totalCount++;
+      }
+    }
+  }
+
+  walk(assetsDir);
+  return manifest;
 }
