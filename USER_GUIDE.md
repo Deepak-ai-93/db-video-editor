@@ -2,7 +2,54 @@
 
 Welcome to **DB Video Editor**, a high-performance, local-first 4K headless video generation engine powered by Node.js, TypeScript, Canvas, and FFmpeg.
 
-This guide explains step-by-step how creators and AI tools use the system to build, configure, and render video content across multiple resolutions and quality presets.
+This guide explains step-by-step how creators and AI tools (such as **OpenCode CLI**, **Claude Code**, or **Antigravity CLI**) use the system to build, configure, and render video content across multiple resolutions and quality presets.
+
+---
+
+## 🤖 AI Assistant Integration Workflow (OpenCode CLI / Claude Code / Antigravity CLI)
+
+AI coding tools can control the video engine directly via TypeScript/JSON payloads in standard workspace mode, bypassing manual command-line typing.
+
+```mermaid
+graph TD
+    A[User Prompt in OpenCode / Antigravity CLI] --> B[AI Agent reads content/idea.md]
+    B --> C[executeAgentWorkflow in scripts/ai-agent-bridge.ts]
+    C -->|Check SHA-256 Token Cache| D[Synthesize content/storyboard.json]
+    D --> E[Render 4K MP4 via canvas & FFmpeg]
+    E --> F[Output Agent Payload Response JSON]
+```
+
+### 1. Zero-CLI Programmatic Agent Execution
+AI tools call `executeAgentWorkflow()` in [`scripts/ai-agent-bridge.ts`](file:///C:/db-video-editor/scripts/ai-agent-bridge.ts):
+
+```typescript
+import { executeAgentWorkflow } from './scripts/ai-agent-bridge.ts';
+
+const response = await executeAgentWorkflow({
+  promptText: "# Product Launch Promo\n## Scene 1: Next-gen Video AI",
+  resolution: "4k",
+  quality: "high",
+});
+
+console.log(response.outputVideoPath); // out/agent-render-4k.mp4
+```
+
+### 2. JSON Request Payload Execution
+Agents can drop a request payload (`content/agent-request.json`) into `content/`:
+
+```json
+{
+  "promptPath": "content/promo-idea-1.md",
+  "resolution": "1080p",
+  "quality": "standard",
+  "outputFile": "out/agent-output.mp4"
+}
+```
+
+And trigger execution:
+```bash
+npm run agent content/agent-request.json
+```
 
 ---
 
@@ -128,9 +175,10 @@ Total Tokens Saved  : 638 (via prompt caching)
 
 ---
 
-## 💻 Summary CLI Cheatsheet
+## 💻 Summary CLI & Agent Cheatsheet
 
 ```bash
+npm run agent content/promo-idea-1.md                       # AI Agent Direct Bridge Run
 npm run init                                                # Scaffold workspace
 npm run plan -- --input content/idea.md                     # Generate Storyboard JSON
 npm run tokens                                              # Display AI Token Stats

@@ -1,6 +1,6 @@
 {
   "name": "db-video-editor",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "init": "tsx cli.ts init",
     "plan": "tsx cli.ts plan",
     "tokens": "tsx cli.ts tokens",
+    "agent": "tsx scripts/ai-agent-bridge.ts",
     "render": "tsx cli.ts render",
     "render:storyboard": "tsx cli.ts render --storyboard=content/storyboard.json",
     "render:bouncing-ball": "tsx cli.ts render --composition=bouncing-ball",
