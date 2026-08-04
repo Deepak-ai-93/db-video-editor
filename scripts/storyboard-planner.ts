@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { StoryboardSpec, StoryboardSceneSpec } from '../core/types.ts';
 import { scanAssetManifest } from '../core/validate.ts';
+import { getCachedStoryboard, recordTokenUsage } from '../core/tokens.ts';
 
 const ROOT = process.cwd();
 
@@ -13,9 +14,6 @@ export interface PlanOptions {
   fps?: number;
 }
 
-/**
- * Parses natural text/markdown prompt into structured StoryboardSpec object.
- */
 export function generateStoryboardFromMarkdown(
   markdown: string,
   options: { width?: number; height?: number; fps?: number } = {},
@@ -67,7 +65,6 @@ export function generateStoryboardFromMarkdown(
       });
     });
   } else {
-    // Default 3-scene outline
     scenes.push(
       {
         sceneNumber: 1,
@@ -145,7 +142,34 @@ export function runPlanner(options: PlanOptions): StoryboardSpec {
   }
 
   const content = fs.readFileSync(absInput, 'utf8');
-  const storyboard = generateStoryboardFromMarkdown(content, options);
+
+  // Check token cache first
+  const cachedJson = getCachedStoryboard(content);
+  let storyboard: StoryboardSpec;
+  let isCached = false;
+
+  if (cachedJson) {
+    storyboard = JSON.parse(cachedJson);
+    isCached = true;
+    console.log(`[token-optimizer] Prompt hash matched token cache! Reusing cached storyboard structure.`);
+  } else {
+    storyboard = generateStoryboardFromMarkdown(content, options);
+  }
+
+  const storyboardJson = JSON.stringify(storyboard, null, 2);
+
+  const tokenRecord = recordTokenUsage({
+    promptFile: options.inputFile,
+    promptContent: content,
+    storyboardJson,
+    isCached,
+  });
+
+  if (isCached) {
+    console.log(`[token-optimizer] Saved ${tokenRecord.tokensSaved} LLM tokens on this run.`);
+  } else {
+    console.log(`[token-optimizer] Used ${tokenRecord.totalTokens} tokens (${tokenRecord.promptTokens} prompt / ${tokenRecord.completionTokens} completion).`);
+  }
 
   const validation = validateStoryboardAssets(storyboard);
   if (!validation.valid) {
@@ -159,7 +183,7 @@ export function runPlanner(options: PlanOptions): StoryboardSpec {
     : path.join(ROOT, 'content', 'storyboard.json');
 
   fs.mkdirSync(path.dirname(outFile), { recursive: true });
-  fs.writeFileSync(outFile, JSON.stringify(storyboard, null, 2), 'utf8');
+  fs.writeFileSync(outFile, storyboardJson, 'utf8');
 
   console.log(`[planner] Storyboard successfully synthesized: ${path.relative(ROOT, outFile)}`);
   return storyboard;

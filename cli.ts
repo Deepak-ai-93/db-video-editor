@@ -6,6 +6,7 @@ import { compositions } from './compositions/index.ts';
 import { assertCompositionAssets, checkCompositionAssets, scanAssetManifest } from './core/validate.ts';
 import { initWorkspace } from './core/init.ts';
 import { runPlanner } from './scripts/storyboard-planner.ts';
+import { loadTokenLog } from './core/tokens.ts';
 import type { StoryboardSpec } from './core/types.ts';
 
 const program = new Command();
@@ -28,7 +29,7 @@ function reportProgress(frame: number, total: number): void {
   }
 }
 
-program.name('video-engine').description('Custom local video engine CLI').version('0.2.0');
+program.name('video-engine').description('Custom local video engine CLI').version('0.3.0');
 
 program
   .command('init')
@@ -73,6 +74,25 @@ program
     console.log(`\nSynthesizing AI Storyboard...`);
     const storyboard = runPlanner({ inputFile: options.input, outputFile: options.output });
     console.log(`Created Storyboard "${storyboard.title}" with ${storyboard.scenes.length} scenes.`);
+  });
+
+program
+  .command('tokens')
+  .description('Display AI Token Usage and Optimization Report')
+  .action(() => {
+    const log = loadTokenLog();
+    console.log('\n=== AI Token Usage & Optimization Report ===');
+    console.log(`Total Planning Runs : ${log.totalRuns}`);
+    console.log(`Total Prompt Tokens : ${log.totalPromptTokens}`);
+    console.log(`Total Compl. Tokens : ${log.totalCompletionTokens}`);
+    console.log(`Total Tokens Used   : ${log.totalTokensUsed}`);
+    console.log(`Total Tokens Saved  : ${log.totalTokensSaved} (via prompt caching)`);
+    if (log.records.length > 0) {
+      console.log('\nRecent Runs:');
+      log.records.slice(-5).forEach((r, idx) => {
+        console.log(`  ${idx + 1}. [${r.timestamp.split('T')[0]}] ${r.promptFile} -> ${r.cached ? 'CACHED (saved ' + r.tokensSaved + ' tokens)' : r.totalTokens + ' tokens'}`);
+      });
+    }
   });
 
 program

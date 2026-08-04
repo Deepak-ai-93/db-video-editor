@@ -1,0 +1,29 @@
+{
+  "totalPromptTokens": 89,
+  "totalCompletionTokens": 549,
+  "totalTokensUsed": 638,
+  "totalTokensSaved": 638,
+  "totalRuns": 2,
+  "records": [
+    {
+      "timestamp": "2026-08-04T07:07:57.618Z",
+      "promptFile": "content/promo-idea-1.md",
+      "promptHash": "8222647cb97694b89beb0f84303616258f8a40bb8095f64204717b2cfc410f88",
+      "promptTokens": 89,
+      "completionTokens": 549,
+      "totalTokens": 638,
+      "cached": false,
+      "tokensSaved": 0
+    },
+    {
+      "timestamp": "2026-08-04T07:08:02.880Z",
+      "promptFile": "content/promo-idea-1.md",
+      "promptHash": "8222647cb97694b89beb0f84303616258f8a40bb8095f64204717b2cfc410f88",
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "totalTokens": 0,
+      "cached": true,
+      "tokensSaved": 638
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "title": "Neon Release Reel",
+  "version": "1.0",
+  "width": 3840,
+  "height": 2160,
+  "fps": 60,
+  "output": "out/neon-release-reel-4k.mp4",
+  "scenes": [
+    {
+      "sceneNumber": 1,
+      "durationInSeconds": 4,
+      "theme": {
+        "backgroundColor": "#090d16",
+        "accentColor": "#38bdf8",
+        "textColor": "#ffffff"
+      },
+      "textOverlays": [
+        {
+          "text": "Tagline: One brief. Rendered in code.",
+          "fontSize": 72,
+          "x": 1920,
+          "y": 1000,
+          "align": "center",
+          "animation": "fadeIn"
+        }
+      ],
+      "mediaAssets": [
+        {
+          "path": "assets/tech-bg.png",
+          "opacity": 0.25
+        }
+      ],
+      "audio": [
+        {
+          "path": "assets/audio/bed.mp3",
+          "startAt": 0,
+          "volume": 0.8
+        }
+      ]
+    },
+    {
+      "sceneNumber": 2,
+      "durationInSeconds": 4,
+      "theme": {
+        "backgroundColor": "#111827",
+        "accentColor": "#a78bfa",
+        "textColor": "#ffffff"
+      },
+      "textOverlays": [
+        {
+          "text": "Theme: violet",
+          "fontSize": 72,
+          "x": 1920,
+          "y": 1000,
+          "align": "center",
+          "animation": "fadeIn"
+        }
+      ],
+      "mediaAssets": [
+        {
+          "path": "assets/tech-bg.png",
+          "opacity": 0.25
+        }
+      ],
+      "audio": [
+        {
+          "path": "assets/audio/bed.mp3",
+          "startAt": 4,
+          "volume": 0.8
+        }
+      ]
+    },
+    {
+      "sceneNumber": 3,
+      "durationInSeconds": 4,
+      "theme": {
+        "backgroundColor": "#090d16",
+        "accentColor": "#38bdf8",
+        "textColor": "#ffffff"
+      },
+      "textOverlays": [
+        {
+          "text": "Key visual direction",
+          "fontSize": 72,
+          "x": 1920,
+          "y": 1000,
+          "align": "center",
+          "animation": "fadeIn"
+        }
+      ],
+      "mediaAssets": [
+        {
+          "path": "assets/tech-bg.png",
+          "opacity": 0.25
+        }
+      ],
+      "audio": [
+        {
+          "path": "assets/audio/bed.mp3",
+          "startAt": 8,
+          "volume": 0.8
+        }
+      ]
+    }
+  ]
+}
