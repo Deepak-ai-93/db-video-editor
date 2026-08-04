@@ -1,0 +1,28 @@
+{
+  "name": "db-video-editor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "cli": "tsx cli.ts",
+    "render": "tsx cli.ts render",
+    "render:bouncing-ball": "tsx cli.ts render --composition=bouncing-ball",
+    "render:gradient-spin": "tsx cli.ts render --composition=gradient-spin",
+    "render:tech-promo": "tsx cli.ts render --composition=tech-promo",
+    "validate": "tsx cli.ts validate",
+    "list": "tsx cli.ts list",
+    "direct": "tsx scripts/ai-director.ts content/promo-idea-1.md"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.3",
+    "commander": "^15.0.0",
+    "fluent-ffmpeg": "^2.1.3"
+  },
+  "devDependencies": {
+    "@types/fluent-ffmpeg": "^2.1.28",
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.5",
+    "typescript": "^7.0.2"
+  }
+}
